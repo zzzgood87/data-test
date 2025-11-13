@@ -15,8 +15,15 @@ const KakaoMap = ({ buildings, onBuildingClick, selectedBuilding }) => {
       return;
     }
 
-    // 카카오맵 SDK 로드
-    window.kakao.maps.load(() => {
+    // DOM이 완전히 렌더링될 때까지 대기
+    const initializeMap = () => {
+      // mapContainer가 DOM에 존재하는지 확인
+      if (!mapContainer.current) {
+        console.error('지도 컨테이너를 찾을 수 없습니다.');
+        setIsLoading(false);
+        return;
+      }
+
       try {
         const options = {
           center: new window.kakao.maps.LatLng(37.5665, 126.9780), // 서울시청
@@ -40,6 +47,12 @@ const KakaoMap = ({ buildings, onBuildingClick, selectedBuilding }) => {
         console.error('지도 초기화 오류:', error);
         setIsLoading(false);
       }
+    };
+
+    // 카카오맵 SDK 로드
+    window.kakao.maps.load(() => {
+      // 약간의 지연을 주어 DOM이 완전히 렌더링되도록 보장
+      setTimeout(initializeMap, 100);
     });
   }, []);
 
