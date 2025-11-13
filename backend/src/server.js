@@ -2,24 +2,49 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
+const fs = require('fs');
 
 // .env 파일 로드 (작업 디렉토리 = backend)
 // Windows와 Linux/Mac 모두에서 작동하도록 절대 경로 사용
 const dotenvPath = path.resolve(process.cwd(), '.env');
-require('dotenv').config({ path: dotenvPath });
 
 console.log('📂 .env 파일 경로:', dotenvPath);
 console.log('📂 작업 디렉토리:', process.cwd());
+
+// .env 파일이 없으면 자동으로 생성
+if (!fs.existsSync(dotenvPath)) {
+  console.log('⚠️  .env 파일이 없습니다. 자동으로 생성합니다...');
+
+  const defaultEnvContent = `PORT=5000
+NODE_ENV=development
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production-real-estate-2024
+JWT_EXPIRE=7d
+DB_NAME=real_estate_db
+DB_USER=admin
+DB_PASS=admin123
+DB_HOST=localhost
+DB_DIALECT=sqlite
+`;
+
+  try {
+    fs.writeFileSync(dotenvPath, defaultEnvContent, 'utf8');
+    console.log('✅ .env 파일이 생성되었습니다!');
+  } catch (error) {
+    console.error('❌ .env 파일 생성 실패:', error.message);
+    console.error('💡 수동으로 생성해주세요: backend\\.env');
+    process.exit(1);
+  }
+}
+
+// .env 파일 로드
+require('dotenv').config({ path: dotenvPath });
 
 // 환경 변수 확인
 if (!process.env.JWT_SECRET) {
   console.error('\n❌ 오류: JWT_SECRET 환경 변수가 설정되지 않았습니다!');
   console.error('💡 해결 방법:');
-  console.error('   1. backend 폴더에 .env 파일이 있는지 확인하세요');
-  console.error('   2. .env 파일에 다음 내용이 있는지 확인하세요:');
-  console.error('      JWT_SECRET=your-super-secret-jwt-key-change-this-in-production');
-  console.error('   3. 현재 작업 디렉토리:', process.cwd());
-  console.error('   4. .env 파일 경로:', dotenvPath);
+  console.error('   1. .env 파일 내용을 확인하세요:', dotenvPath);
+  console.error('   2. 서버를 재시작하세요 (Ctrl+C 후 npm run dev)');
   process.exit(1);
 }
 
