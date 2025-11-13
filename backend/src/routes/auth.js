@@ -4,6 +4,13 @@ const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 const { auth } = require('../middleware/auth');
 
+// JWT_SECRET 환경 변수 확인
+if (!process.env.JWT_SECRET) {
+  console.error('❌ JWT_SECRET 환경 변수가 설정되지 않았습니다!');
+  console.error('💡 backend/.env 파일에 JWT_SECRET을 설정하세요.');
+  process.exit(1);
+}
+
 // 회원가입
 router.post('/register', async (req, res) => {
   try {
