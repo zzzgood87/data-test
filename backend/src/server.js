@@ -3,8 +3,8 @@ const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
 
-// .env 파일 경로를 명시적으로 지정
-require('dotenv').config({ path: path.join(__dirname, '../../.env') });
+// .env 파일 경로를 명시적으로 지정 (__dirname = backend/src, ../ = backend/)
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 // 환경 변수 확인
 if (!process.env.JWT_SECRET) {
