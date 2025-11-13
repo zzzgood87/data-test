@@ -3,8 +3,13 @@ const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
 
-// .env 파일 경로를 명시적으로 지정 (__dirname = backend/src, ../ = backend/)
-require('dotenv').config({ path: path.join(__dirname, '../.env') });
+// .env 파일 로드 (작업 디렉토리 = backend)
+// Windows와 Linux/Mac 모두에서 작동하도록 절대 경로 사용
+const dotenvPath = path.resolve(process.cwd(), '.env');
+require('dotenv').config({ path: dotenvPath });
+
+console.log('📂 .env 파일 경로:', dotenvPath);
+console.log('📂 작업 디렉토리:', process.cwd());
 
 // 환경 변수 확인
 if (!process.env.JWT_SECRET) {
@@ -13,13 +18,14 @@ if (!process.env.JWT_SECRET) {
   console.error('   1. backend 폴더에 .env 파일이 있는지 확인하세요');
   console.error('   2. .env 파일에 다음 내용이 있는지 확인하세요:');
   console.error('      JWT_SECRET=your-super-secret-jwt-key-change-this-in-production');
-  console.error('   3. .env.example 파일을 .env로 복사하세요\n');
+  console.error('   3. 현재 작업 디렉토리:', process.cwd());
+  console.error('   4. .env 파일 경로:', dotenvPath);
   process.exit(1);
 }
 
 console.log('✅ 환경 변수 로드 완료');
 console.log(`   - PORT: ${process.env.PORT || 5000}`);
-console.log(`   - JWT_SECRET: ${process.env.JWT_SECRET ? '설정됨' : '미설정'}`);
+console.log(`   - JWT_SECRET: ${process.env.JWT_SECRET ? '설정됨 ✓' : '미설정 ✗'}`);
 console.log('');
 
 const { syncDatabase } = require('./models');

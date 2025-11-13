@@ -1,8 +1,9 @@
 const { Sequelize } = require('sequelize');
 const path = require('path');
 
-// .env 파일 경로를 명시적으로 지정 (__dirname = backend/src/config, ../../ = backend/)
-require('dotenv').config({ path: path.join(__dirname, '../../.env') });
+// .env 파일 로드 (작업 디렉토리 기준)
+const dotenvPath = path.resolve(process.cwd(), '.env');
+require('dotenv').config({ path: dotenvPath });
 
 const sequelize = new Sequelize({
   dialect: 'sqlite',
