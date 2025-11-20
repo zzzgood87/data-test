@@ -1,107 +1,86 @@
-const sequelize = require('../config/database');
-const User = require('./User');
-const Building = require('./Building');
-const Owner = require('./Owner');
-const Unit = require('./Unit');
-const TransactionHistory = require('./TransactionHistory');
-const ActivityLog = require('./ActivityLog');
+const { Sequelize } = require('sequelize');
+const path = require('path');
+const fs = require('fs');
 
-// 관계 설정
-// Building과 Unit
-Building.hasMany(Unit, {
-  foreignKey: 'buildingId',
-  as: 'units'
-});
-Unit.belongsTo(Building, {
-  foreignKey: 'buildingId',
-  as: 'building'
+// 데이터베이스 연결 설정
+const sequelize = new Sequelize({
+  dialect: 'sqlite',
+  storage: path.join(__dirname, '../../database.sqlite'),
+  logging: false,
+  define: {
+    freezeTableName: true,
+    underscored: true
+  }
 });
 
-// Owner와 Unit
-Owner.hasMany(Unit, {
-  foreignKey: 'ownerId',
-  as: 'units'
-});
-Unit.belongsTo(Owner, {
-  foreignKey: 'ownerId',
-  as: 'owner'
+const db = {};
+
+// 모델 파일들을 동적으로 로드
+const modelFiles = [
+  'User.js',
+  'Customer.js',
+  'ContactSchedule.js',
+  'ContactHistory.js',
+  'Todo.js',
+  'Statistic.js'
+];
+
+modelFiles.forEach(file => {
+  const model = require(path.join(__dirname, file))(sequelize);
+  db[model.name] = model;
 });
 
-// Unit과 TransactionHistory
-Unit.hasMany(TransactionHistory, {
-  foreignKey: 'unitId',
-  as: 'transactions'
-});
-TransactionHistory.belongsTo(Unit, {
-  foreignKey: 'unitId',
-  as: 'unit'
+// 연관관계 설정
+Object.keys(db).forEach(modelName => {
+  if (db[modelName].associate) {
+    db[modelName].associate(db);
+  }
 });
 
-// Unit과 ActivityLog
-Unit.hasMany(ActivityLog, {
-  foreignKey: 'unitId',
-  as: 'activities'
-});
-ActivityLog.belongsTo(Unit, {
-  foreignKey: 'unitId',
-  as: 'unit'
-});
+db.sequelize = sequelize;
+db.Sequelize = Sequelize;
 
-// Building과 ActivityLog
-Building.hasMany(ActivityLog, {
-  foreignKey: 'buildingId',
-  as: 'activities'
-});
-ActivityLog.belongsTo(Building, {
-  foreignKey: 'buildingId',
-  as: 'building'
-});
-
-// User와 관계
-User.hasMany(TransactionHistory, {
-  foreignKey: 'agentId',
-  as: 'transactions'
-});
-TransactionHistory.belongsTo(User, {
-  foreignKey: 'agentId',
-  as: 'agent'
-});
-
-User.hasMany(ActivityLog, {
-  foreignKey: 'agentId',
-  as: 'activities'
-});
-ActivityLog.belongsTo(User, {
-  foreignKey: 'agentId',
-  as: 'agent'
-});
-
-User.hasMany(Building, {
-  foreignKey: 'registeredBy',
-  as: 'buildings'
-});
-Building.belongsTo(User, {
-  foreignKey: 'registeredBy',
-  as: 'registrant'
-});
-
-// 데이터베이스 동기화
-const syncDatabase = async () => {
+// 데이터베이스 초기화 함수
+db.initialize = async () => {
   try {
+    await sequelize.authenticate();
+    console.log('✅ 데이터베이스 연결 성공');
+
+    // 테이블 동기화 (개발 환경에서만 force: true 사용 주의)
     await sequelize.sync({ alter: true });
-    console.log('✅ 데이터베이스 동기화 완료');
+    console.log('✅ 데이터베이스 테이블 동기화 완료');
+
+    // 기본 관리자 계정 생성
+    await createDefaultAdmin();
+
+    return true;
   } catch (error) {
-    console.error('❌ 데이터베이스 동기화 실패:', error);
+    console.error('❌ 데이터베이스 초기화 실패:', error);
+    throw error;
   }
 };
 
-module.exports = {
-  sequelize,
-  User,
-  Building,
-  Owner,
-  Unit,
-  TransactionHistory,
-  ActivityLog,
-  syncDatabase
-};
+// 기본 관리자 계정 생성
+async function createDefaultAdmin() {
+  const bcrypt = require('bcryptjs');
+
+  try {
+    const adminExists = await db.User.findOne({ where: { username: 'admin' } });
+
+    if (!adminExists) {
+      const hashedPassword = await bcrypt.hash('admin1234', 10);
+      await db.User.create({
+        username: 'admin',
+        password: hashedPassword,
+        name: '관리자',
+        email: 'admin@example.com',
+        role: 'admin'
+      });
+      console.log('✅ 기본 관리자 계정 생성 완료 (admin/admin1234)');
+    }
+  } catch (error) {
+    console.error('❌ 기본 관리자 계정 생성 실패:', error);
+  }
+}
+
+module.exports = db;

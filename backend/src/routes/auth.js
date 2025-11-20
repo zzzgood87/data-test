@@ -1,121 +1,172 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
-const { auth } = require('../middleware/auth');
-
-// JWT_SECRET 환경 변수 확인
-if (!process.env.JWT_SECRET) {
-  console.error('❌ JWT_SECRET 환경 변수가 설정되지 않았습니다!');
-  console.error('💡 backend/.env 파일에 JWT_SECRET을 설정하세요.');
-  process.exit(1);
-}
+const auth = require('../middleware/auth');
 
 // 회원가입
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, phone, role } = req.body;
+    const { username, password, name, email, role } = req.body;
 
-    // 이메일 중복 확인
-    const existingUser = await User.findOne({ where: { email } });
-    if (existingUser) {
-      return res.status(400).json({ error: '이미 사용중인 이메일입니다.' });
+    // 필수 필드 검증
+    if (!username || !password || !name) {
+      return res.status(400).json({
+        success: false,
+        message: '필수 필드를 입력해주세요 (username, password, name)'
+      });
     }
+
+    // 사용자 중복 확인
+    const existingUser = await User.findOne({ where: { username } });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: '이미 존재하는 사용자명입니다'
+      });
+    }
+
+    // 비밀번호 해싱
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     // 사용자 생성
     const user = await User.create({
+      username,
+      password: hashedPassword,
       name,
       email,
-      password,
-      phone,
-      role: role || 'agent'
+      role: role || 'user'
     });
 
     // JWT 토큰 생성
     const token = jwt.sign(
-      { id: user.id, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRE }
-    );
-
-    res.status(201).json({
-      message: '회원가입이 완료되었습니다.',
-      user: {
+      {
         id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
+        username: user.username,
         role: user.role
       },
-      token
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '24h' }
+    );
+
+    // 비밀번호 제외하고 반환
+    const userResponse = {
+      id: user.id,
+      username: user.username,
+      name: user.name,
+      email: user.email,
+      role: user.role
+    };
+
+    res.status(201).json({
+      success: true,
+      message: '회원가입이 완료되었습니다',
+      token,
+      user: userResponse
     });
   } catch (error) {
     console.error('회원가입 오류:', error);
-    res.status(500).json({ error: '회원가입 처리 중 오류가 발생했습니다.' });
+    res.status(500).json({
+      success: false,
+      message: '회원가입 중 오류가 발생했습니다',
+      error: error.message
+    });
   }
 });
 
 // 로그인
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { username, password } = req.body;
 
-    // 사용자 찾기
-    const user = await User.findOne({ where: { email } });
+    // 필수 필드 검증
+    if (!username || !password) {
+      return res.status(400).json({
+        success: false,
+        message: '아이디와 비밀번호를 입력해주세요'
+      });
+    }
+
+    // 사용자 확인
+    const user = await User.findOne({ where: { username } });
     if (!user) {
-      return res.status(401).json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' });
+      return res.status(401).json({
+        success: false,
+        message: '아이디 또는 비밀번호가 올바르지 않습니다'
+      });
     }
 
     // 비밀번호 확인
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' });
-    }
-
-    // 활성 사용자 확인
-    if (!user.isActive) {
-      return res.status(403).json({ error: '비활성화된 계정입니다.' });
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({
+        success: false,
+        message: '아이디 또는 비밀번호가 올바르지 않습니다'
+      });
     }
 
     // JWT 토큰 생성
     const token = jwt.sign(
-      { id: user.id, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRE }
-    );
-
-    res.json({
-      message: '로그인 성공',
-      user: {
+      {
         id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
+        username: user.username,
         role: user.role
       },
-      token
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '24h' }
+    );
+
+    // 비밀번호 제외하고 반환
+    const userResponse = {
+      id: user.id,
+      username: user.username,
+      name: user.name,
+      email: user.email,
+      role: user.role
+    };
+
+    res.json({
+      success: true,
+      message: '로그인 성공',
+      token,
+      user: userResponse
     });
   } catch (error) {
     console.error('로그인 오류:', error);
-    res.status(500).json({ error: '로그인 처리 중 오류가 발생했습니다.' });
+    res.status(500).json({
+      success: false,
+      message: '로그인 중 오류가 발생했습니다',
+      error: error.message
+    });
   }
 });
 
 // 현재 사용자 정보 조회
 router.get('/me', auth, async (req, res) => {
   try {
+    const user = await User.findByPk(req.user.id, {
+      attributes: { exclude: ['password'] }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: '사용자를 찾을 수 없습니다'
+      });
+    }
+
     res.json({
-      user: {
-        id: req.user.id,
-        name: req.user.name,
-        email: req.user.email,
-        phone: req.user.phone,
-        role: req.user.role
-      }
+      success: true,
+      user
     });
   } catch (error) {
     console.error('사용자 정보 조회 오류:', error);
-    res.status(500).json({ error: '사용자 정보 조회 중 오류가 발생했습니다.' });
+    res.status(500).json({
+      success: false,
+      message: '사용자 정보 조회 중 오류가 발생했습니다',
+      error: error.message
+    });
   }
 });
 

@@ -1,10 +1,10 @@
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 
-// JWT_SECRET 환경 변수 확인
+// JWT_SECRET 환경 변수 확인 (없으면 기본값 사용)
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 if (!process.env.JWT_SECRET) {
-  console.error('❌ JWT_SECRET 환경 변수가 설정되지 않았습니다!');
-  process.exit(1);
+  console.warn('⚠️  JWT_SECRET 환경 변수가 설정되지 않아 기본값을 사용합니다. 프로덕션에서는 반드시 설정하세요!');
 }
 
 const auth = async (req, res, next) => {
@@ -15,11 +15,10 @@ const auth = async (req, res, next) => {
       return res.status(401).json({ error: '인증 토큰이 필요합니다.' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findOne({
       where: {
-        id: decoded.id,
-        isActive: true
+        id: decoded.id
       }
     });
 
@@ -42,4 +41,4 @@ const adminOnly = (req, res, next) => {
   next();
 };
 
-module.exports = { auth, adminOnly };
+module.exports = auth;
